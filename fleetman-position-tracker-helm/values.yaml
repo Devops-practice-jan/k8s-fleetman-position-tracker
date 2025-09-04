@@ -1,0 +1,14 @@
+replicaCount: 1
+
+image:
+  repository: richardchesterwood/k8s-fleetman-position-tracker
+  tag: release2
+  pullPolicy: IfNotPresent
+
+service:
+  name: fleetman-position-tracker
+  type: ClusterIP
+  port: 8080
+
+env:
+  SPRING_PROFILES_ACTIVE: production-microservice

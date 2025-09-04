@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fleetman-position-tracker
+description: Helm chart for Fleetman Position Tracker microservice
+type: application
+version: 0.1.0
+appVersion: "1.0"
