@@ -18,6 +18,12 @@ pipeline {
             }
         }
 
+         stage('Build Jar') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
         stage('AWS Auth & Update kubeconfig') {
             steps {
                 sh """
