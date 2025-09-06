@@ -17,6 +17,18 @@ pipeline {
                 git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
             }
         }
+        stage('SonarQube Analysis Stage') {
+            steps{
+               withSonarQubeEnv('sonar') {
+                sh """
+                  mvn clean verify sonar:sonar \
+                  -Dsonar.projectKey=k8s-fleetman-position-tracker \
+                  -Dsonar.projectName=k8s-fleetman-position-tracker
+
+                """
+              }
+            }
+        }
 
          stage('Build Jar') {
             steps {
