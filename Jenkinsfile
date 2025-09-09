@@ -69,6 +69,15 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan') {
+            steps {
+                sh """
+                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
+                """
+                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+            }
+        }
+
         stage('Deploy to EKS with Helm') {
             steps {
                 sh """
