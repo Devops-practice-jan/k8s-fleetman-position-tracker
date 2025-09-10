@@ -36,15 +36,6 @@ pipeline {
             }
         }
 
-        stage('AWS Auth & Update kubeconfig') {
-            steps {
-                sh """
-                    aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
-                    kubectl get ns
-                """
-            }
-        }
-
         stage('Create ECR Repo if Not Exists') {
             steps {
                 sh """
@@ -75,6 +66,15 @@ pipeline {
                     trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+            }
+        }
+
+        stage('AWS Auth & Update kubeconfig') {
+            steps {
+                sh """
+                    aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
+                    kubectl get ns
+                """
             }
         }
 
