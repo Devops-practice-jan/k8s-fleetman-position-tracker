@@ -90,4 +90,13 @@ pipeline {
             }
         }
     }
+    post {
+        success {
+            echo "✅ Build and deployment pipeline for ${SERVICE_NAME} completed successfully! 🎉"
+        }
+        failure {
+            echo "❌ Build and deployment pipeline for ${SERVICE_NAME} failed."
+            // You can add more actions here, like sending notifications
+        }
+    }
 }
