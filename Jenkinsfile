@@ -40,14 +40,17 @@ pipeline {
                         aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
                         aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
                         aws configure set default.region $AWS_REGION
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
-
-                        aws ecr describe-repositories --repository-names ${SERVICE_NAME} --region ${AWS_REGION} || \\
-                        aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}
-
-                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}     
                     """
                 }
+            }
+        }
+        stage('Create ECR repo if not exist'){
+            steps{
+                sh """ 
+                  aws ecr describe-repositories --repository-names ${SERVICE_NAME} --region ${AWS_REGION} || \\
+                  aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}s
+                """
             }
         }
         stage('Build & Push Image') {
@@ -69,6 +72,11 @@ pipeline {
                     trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} 
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+            }
+        }
+        stage('Update kubeconfig'){
+            steps {
+                sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
             }
         }
         stage('Helm Deploy') {
