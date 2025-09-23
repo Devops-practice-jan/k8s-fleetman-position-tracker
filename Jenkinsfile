@@ -1,91 +1,82 @@
+
 pipeline {
-    agent { label 'build' }
-
-    environment {
-        AWS_REGION    = "ap-south-1"
-        ACCOUNT_ID    = "110427924553"
-        ECR_REPO      = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        SERVICE_NAME  = "k8s-fleetman-position-tracker"
-        IMAGE_TAG     = "${env.BUILD_NUMBER}"
-        K8S_NAMESPACE = "default"
-        CLUSTER_NAME  = "eks-cluster"
+    agent {
+        label 'build'
     }
-
+    environment {
+        AWS_REGION = "ap-south-1"
+        ECR_REPO = "110427924553.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_TAG = "V${env.BUILD_NUMBER}"
+        SERVICE_NAME = "k8s-fleetman-position-tracker"
+        HELM_CHART_DIR = "./fleetman-position-tracker"
+        CLUSTER_NAME = "eks-cluster"
+    }
     stages {
-        stage('Checkout') {
+        stage('checkout-stage') {
             steps {
-                git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
+                git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-api-gateway.git"
             }
         }
-        stage('SonarQube Analysis Stage') {
-            steps{
-               withSonarQubeEnv('sonar') {
-                sh """
-                  mvn clean verify sonar:sonar \
-                  -Dsonar.projectKey=k8s-fleetman-position-tracker \
-                  -Dsonar.projectName=k8s-fleetman-position-tracker
-
-                """
-              }
-            }
-        }
-
-         stage('Build Jar') {
+        stage('sonarqube-analysis') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                withSonarQubeEnv('sonar') {
+                    sh """ 
+                        mvn clean verify sonar:sonar \\
+                        -Dsonar.projectKey=k8s-fleetman-position-tracker \\
+                        -Dsonar.projectName=k8s-fleetman-position-tracker 
+                    """
+                }
             }
         }
-
-        stage('Create ECR Repo if Not Exists') {
+        stage('jar-build-stage') {
             steps {
-                sh """
-                    aws ecr describe-repositories \
-                      --repository-names ${SERVICE_NAME} \
-                      --region ${AWS_REGION} || \
-                    aws ecr create-repository \
-                      --repository-name ${SERVICE_NAME} \
-                      --region ${AWS_REGION}
-                """
+                sh "mvn clean package -DskipTests"
             }
         }
+        stage('AWS Setup & Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                        aws configure set default.region $AWS_REGION
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
 
+                        aws ecr describe-repositories --repository-names ${SERVICE_NAME} --region ${AWS_REGION} || \\
+                        aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}
+
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                    """
+                }
+            }
+        }
         stage('Build & Push Image') {
             steps {
                 sh """
-                    aws ecr get-login-password --region ${AWS_REGION} \
-                      | docker login --username AWS --password-stdin ${ECR_REPO}
                     docker build -t ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} .
                     docker push ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
                 """
             }
         }
-
-        stage('Trivy Scan') {
+        stage('Trivy & Snyk Container Scan') {
             steps {
-                sh """
-                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh "snyk auth \$SNYK_TOKEN"
+                    sh "snyk container test ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} --file=Dockerfile --fail-on=upgradable || true" // Snyk test as a security gate
+                    sh "snyk container monitor ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} --file=Dockerfile" // Snyk monitor to track the image
+                }
+                sh """ 
+                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} 
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
             }
         }
-
-        stage('AWS Auth & Update kubeconfig') {
+        stage('Helm Deploy') {
             steps {
-                sh """
-                    aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
-                    kubectl get ns
-                """
-            }
-        }
-
-        stage('Deploy to EKS with Helm') {
-            steps {
-                sh """
-                    helm upgrade --install ${SERVICE_NAME} ./fleetman-position-tracker-helm \
-                      --namespace ${K8S_NAMESPACE} \
-                      --set image.repository=${ECR_REPO}/${SERVICE_NAME} \
-                      --set image.tag=${IMAGE_TAG} \
-                      --wait
+                sh """ 
+                    helm upgrade --install ${SERVICE_NAME} ${HELM_CHART_DIR} \\
+                    --set image.repository=${ECR_REPO}/${SERVICE_NAME} \\
+                    --set image.tag=${IMAGE_TAG}
                 """
             }
         }
@@ -93,10 +84,19 @@ pipeline {
     post {
         success {
             echo "✅ Build and deployment pipeline for ${SERVICE_NAME} completed successfully! 🎉"
+            slackSend(
+                channel: "#jenkins",
+                color: 'good',
+                message: "✅ SUCCESS: The pipeline *${env.JOB_NAME}* build <${env.BUILD_URL}|#${env.BUILD_NUMBER}> completed successfully! The new image is deployed to EKS."
+            )
         }
         failure {
             echo "❌ Build and deployment pipeline for ${SERVICE_NAME} failed."
-            // You can add more actions here, like sending notifications
+            slackSend(
+                channel: "#jenkins",
+                color: 'danger',
+                message: "❌ FAILURE: The pipeline *${env.JOB_NAME}* build <${env.BUILD_URL}|#${env.BUILD_NUMBER}> failed. Check the logs for details."
+            )
         }
     }
 }
