@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('checkout-stage') {
             steps {
-                git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-api-gateway.git"
+                git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
             }
         }
         stage('sonarqube-analysis') {
