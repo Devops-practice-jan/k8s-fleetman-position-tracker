@@ -49,7 +49,7 @@ pipeline {
             steps{
                 sh """ 
                   aws ecr describe-repositories --repository-names ${SERVICE_NAME} --region ${AWS_REGION} || \\
-                  aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}s
+                  aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}
                 """
             }
         }
