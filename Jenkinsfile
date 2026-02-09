@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION    = "ap-south-1"
-        ACCOUNT_ID    = "110427924553"
+        ACCOUNT_ID    = "107153401316"
         ECR_REPO      = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         SERVICE_NAME  = "k8s-fleetman-position-tracker"
         IMAGE_TAG     = "${env.BUILD_NUMBER}"
