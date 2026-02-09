@@ -5,7 +5,7 @@ pipeline {
     }
     environment {
         AWS_REGION = "ap-south-1"
-        ECR_REPO = "110427924553.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_REPO = "107153401316.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_TAG = "V${env.BUILD_NUMBER}"
         SERVICE_NAME = "k8s-fleetman-position-tracker"
         HELM_CHART_DIR = "./fleetman-position-tracker-helm"
