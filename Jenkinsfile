@@ -93,10 +93,19 @@ pipeline {
     post {
         success {
             echo "✅ Build and deployment pipeline for ${SERVICE_NAME} completed successfully! 🎉"
+            slackSend(
+                channel: "#jenkins",
+                color: 'good',
+                message: "✅ SUCCESS: The pipeline *${env.JOB_NAME}* build <${env.BUILD_URL}|#${env.BUILD_NUMBER}> completed successfully! The new image is deployed to EKS."
+            )
         }
         failure {
             echo "❌ Build and deployment pipeline for ${SERVICE_NAME} failed."
-            // You can add more actions here, like sending notifications
+            slackSend(
+                channel: "#jenkins",
+                color: 'danger',
+                message: "❌ FAILURE: The pipeline *${env.JOB_NAME}* build <${env.BUILD_URL}|#${env.BUILD_NUMBER}> failed. Check the logs for details."
+            )
         }
     }
 }
