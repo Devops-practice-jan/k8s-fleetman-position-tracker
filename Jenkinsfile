@@ -1,91 +1,90 @@
+
 pipeline {
-    agent { label 'build' }
-
-    environment {
-        AWS_REGION    = "ap-south-1"
-        ACCOUNT_ID    = "107153401316"
-        ECR_REPO      = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        SERVICE_NAME  = "k8s-fleetman-position-tracker"
-        IMAGE_TAG     = "${env.BUILD_NUMBER}"
-        K8S_NAMESPACE = "default"
-        CLUSTER_NAME  = "eks-cluster"
+    agent {
+        label 'build'
     }
-
+    environment {
+        AWS_REGION = "ap-south-1"
+        ECR_REPO = "107153401316.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_TAG = "V${env.BUILD_NUMBER}"
+        SERVICE_NAME = "k8s-fleetman-position-tracker"
+        HELM_CHART_DIR = "./fleetman-position-tracker-helm"
+        CLUSTER_NAME = "eks-cluster"
+    }
     stages {
-        stage('Checkout') {
+        stage('checkout-stage') {
             steps {
                 git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
             }
         }
-        stage('SonarQube Analysis Stage') {
+        stage('sonarqube-analysis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                    sh """ 
+                        mvn clean verify sonar:sonar \\
+                        -Dsonar.projectKey=k8s-fleetman-position-tracker \\
+                        -Dsonar.projectName=k8s-fleetman-position-tracker 
+                    """
+                }
+            }
+        }
+        stage('jar-build-stage') {
+            steps {
+                sh "mvn clean package -DskipTests"
+            }
+        }
+        stage('AWS Setup & Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                        aws configure set default.region $AWS_REGION
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}     
+                    """
+                }
+            }
+        }
+        stage('Create ECR repo if not exist'){
             steps{
-               withSonarQubeEnv('sonar') {
-                sh """
-                  mvn clean verify sonar:sonar \
-                  -Dsonar.projectKey=k8s-fleetman-position-tracker \
-                  -Dsonar.projectName=k8s-fleetman-position-tracker
-
-                """
-              }
-            }
-        }
-
-         stage('Build Jar') {
-            steps {
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        stage('Create ECR Repo if Not Exists') {
-            steps {
-                sh """
-                    aws ecr describe-repositories \
-                      --repository-names ${SERVICE_NAME} \
-                      --region ${AWS_REGION} || \
-                    aws ecr create-repository \
-                      --repository-name ${SERVICE_NAME} \
-                      --region ${AWS_REGION}
+                sh """ 
+                  aws ecr describe-repositories --repository-names ${SERVICE_NAME} --region ${AWS_REGION} || \\
+                  aws ecr create-repository --repository-name ${SERVICE_NAME} --region ${AWS_REGION}
                 """
             }
         }
-
         stage('Build & Push Image') {
             steps {
                 sh """
-                    aws ecr get-login-password --region ${AWS_REGION} \
-                      | docker login --username AWS --password-stdin ${ECR_REPO}
                     docker build -t ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} .
                     docker push ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
                 """
             }
         }
-
-        stage('Trivy Scan') {
+        stage('Trivy & Snyk Container Scan') {
             steps {
-                sh """
-                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG}
+                withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                    sh "snyk auth \$SNYK_TOKEN"
+                    sh "snyk container test ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} --file=Dockerfile --fail-on=upgradable || true" // Snyk test as a security gate
+                    sh "snyk container monitor ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} --file=Dockerfile" // Snyk monitor to track the image
+                }
+                sh """ 
+                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} 
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
             }
         }
-
-        stage('AWS Auth & Update kubeconfig') {
+        stage('Update kubeconfig'){
             steps {
-                sh """
-                    aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
-                    kubectl get ns
-                """
+                sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
             }
         }
-
-        stage('Deploy to EKS with Helm') {
+        stage('Helm Deploy') {
             steps {
-                sh """
-                    helm upgrade --install ${SERVICE_NAME} ./fleetman-position-tracker-helm \
-                      --namespace ${K8S_NAMESPACE} \
-                      --set image.repository=${ECR_REPO}/${SERVICE_NAME} \
-                      --set image.tag=${IMAGE_TAG} \
-                      --wait
+                sh """ 
+                    helm upgrade --install ${SERVICE_NAME} ${HELM_CHART_DIR} \\
+                    --set image.repository=${ECR_REPO}/${SERVICE_NAME} \\
+                    --set image.tag=${IMAGE_TAG}
                 """
             }
         }
