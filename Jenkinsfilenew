@@ -83,7 +83,7 @@ pipeline {
             stage('Trivy') {
               steps {
                 sh """ 
-                    trivy image --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} 
+                    trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json ${ECR_REPO}/${SERVICE_NAME}:${IMAGE_TAG} 
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
               }
