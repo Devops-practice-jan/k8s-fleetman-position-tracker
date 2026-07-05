@@ -123,10 +123,9 @@ pipeline {
                 message: "❌ FAILURE: The pipeline *${env.JOB_NAME}* build <${env.BUILD_URL}|#${env.BUILD_NUMBER}> failed. Check the logs for details."
             )
         }
+        cleanup{
+        cleanWs()
+
+        }
     }
-cleanup{
-
-cleanWs()
-
-}
 }
