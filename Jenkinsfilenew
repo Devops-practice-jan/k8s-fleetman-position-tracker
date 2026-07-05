@@ -5,12 +5,11 @@ pipeline {
     }
 
     parameters {
-
-    choice(
+      choice(
         name: 'ENVIRONMENT',
         choices: ['dev','qa','uat','prod'],
         description: 'Deployment Environment'
-    )
+      )
     }
     environment {
         AWS_REGION = "ap-south-1"
