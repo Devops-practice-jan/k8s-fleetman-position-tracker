@@ -12,11 +12,13 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>2.7.7</version>
-		<relativePath /> <!-- lookup parent from repository -->
-	</parent>
+		<relativePath /> </parent>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.version>17</java.version>
+		
+		<activemq.version>5.16.7</activemq.version>
+		<jackson.version>2.13.5</jackson.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -36,8 +38,7 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-activemq</artifactId>
-			<version>2.7.7</version>
-		</dependency>
+			</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
