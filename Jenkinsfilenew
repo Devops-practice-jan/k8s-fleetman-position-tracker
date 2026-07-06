@@ -20,11 +20,11 @@ pipeline {
         CLUSTER_NAME = "eks-cluster"
     }
     stages {
-    #   stage('checkout-stage') {
-    #        steps {
-    #            git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
-    #        }
-    #    }
+    //   stage('checkout-stage') {
+    //        steps {
+    //            git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
+    //        }
+    //    }
         stage('checkout-stage') {
          steps {
             // Falls back to 'main' if the parameter or variable isn't set
