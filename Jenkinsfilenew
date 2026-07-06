@@ -25,9 +25,8 @@ pipeline {
     #            git branch: 'main', credentialsId: 'git-id', url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
     #        }
     #    }
-        stages {
-    stage('checkout-stage') {
-        steps {
+        stage('checkout-stage') {
+         steps {
             // Falls back to 'main' if the parameter or variable isn't set
             script {
                 def targetBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'
@@ -38,9 +37,8 @@ pipeline {
                     credentialsId: 'git-id', 
                     url: "https://github.com/Devops-practice-jan/k8s-fleetman-position-tracker.git"
             }
+          }
         }
-    }
-}
         
         stage('sonarqube-analysis') {
             steps {
