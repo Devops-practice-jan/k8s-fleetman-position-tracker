@@ -21,11 +21,6 @@ pipeline {
 org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar \
 -Dsonar.projectKey=k8s-fleetman-position-tracker \
 -Dsonar.projectName=k8s-fleetman-position-tracker
-        stage('jar-build-stage') {
-            steps {
-                sh "mvn clean package -DskipTests"
-            }
-        }
         stage('AWS Setup & Login') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
