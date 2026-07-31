@@ -21,7 +21,7 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonar') {
                     sh """ 
-                        mvn clean verify sonar:sonar \\
+                        mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar \\
                         -Dsonar.projectKey=k8s-fleetman-position-tracker \\
                         -Dsonar.projectName=k8s-fleetman-position-tracker 
                     """
